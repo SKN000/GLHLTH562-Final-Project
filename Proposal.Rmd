@@ -1,0 +1,86 @@
+---
+title: "Proposal"
+author: "Kunning Shen"
+
+---
+
+## Section 1 - Introduction
+```{r setup, include=FALSE, warning = FALSE, message = FALSE}
+library(wordcloud2)
+library(htmlwidgets)
+
+password_data <- read.csv("data/passwords.csv")
+words <- password_data$password
+
+# freqs <- password_data$font_size
+freqs <- 501 - password_data$rank
+
+freqs <- sqrt(freqs)
+
+freqs <- round(freqs / max(freqs) * 500)
+freqs[1] <- freqs[1]+1000
+
+word_freq <- data.frame(word=words, freq=freqs)
+
+wordcloud <- wordcloud2(word_freq, size = 0.5, shape = "circle")
+saveWidget(wordcloud, file="wordcloud.html")
+print(wordcloud)
+```
+
+In the digital age, the strength and security of passwords have become paramount in protecting personal and corporate information from unauthorized access. This study embarks on a comprehensive examination of password characteristics, their security implications, and the development of a password security assessment model. 
+
+I found this data in [Kaggle](https://www.kaggle.com/datasets/utkarshx27/passwords), which is sourced from [Information is Beautiful](https://docs.google.com/spreadsheets/d/1cz7TDhm0ebVpySqbTvrHrD3WpxeyE4hLZtifWSnoNTQ/edit#gid=21) and is also twinned with a visualisation from the book, [Knowledge is Beautiful by David McCandless (out Sep 2014)](https://informationisbeautiful.net/2014/knowledge-is-beautiful/). The dataset includes variables such as password popularity (rank), the actual text of the password, its category, the estimated time to crack the password online, and a measure of its strength. 
+
+It is worth noting that this data was collected before 2014. At that time, there were not as many requirements for setting passwords as there are now. Therefore, not only does this data give a true picture of people's password preferences, but I hope that the modeling of passwords and their strengths will help us figure out why there are so many requirements for setting passwords now, what constitutes a complex password, and the extent to which complex passwords can keep our information secure.
+
+My investigation is structured around three key research questions:
+
+1. Identifying common characteristics of popular passwords, providing insights into user behavior and preferences when selecting passwords.
+
+2. Exploring the relationship between password popularity and strength, to discern whether a tendency exists towards the use of less secure passwords and to understand the potential risks associated with these choices.
+
+3. Developing a model that considers various features of passwords to assess their security, aiming to pinpoint significant factors that influence password strength and thereby inform better password creation practices.
+
+  
+## Section 2 - Data
+
+```{r, include=FALSE, warning = FALSE, message = FALSE}
+
+library(dataReporter)
+makeCodebook(data = password_data, output_dir = getwd(), report_title = "Data Report", open_report = FALSE, replace = TRUE)
+  
+```
+
+## Section 3 - Data analysis plan
+**Describe the key variables to answer your question**
+
+
+
+1. **Password**, **category** and **rank**. These three variables will reveal the preferences for passwords. 
+
+2. **Password** and **Strength**. This pair of variables will show the relationship between uses' password and strength. Here, the *password* is not only the text of users' passwords, but also includes many textual properties we can extract them. The password strength prediction model will also mainly rely on these two variables.
+
+3. **Strength**, **value** and **offline_crack_sec**. These three variables will demonstrate what password strength actually means. Relating an untouchable strength to the actual time of cracking will provide a more intuitive picture of what it means to have a strong password. 
+
+**Preliminary exploratory data analysis**
+
+1. User Preferences for Passwords
+
+![](./figures/pre1.png)
+![](./figures/pre2.png)
+![](./figures/pre3.png)
+
+2. The relationship between password popularity and strength
+![](./figures/pre4.png)
+
+3.  Predictions of password strength using category, password length, number of letters, number of digits using a linear regression model and plotting the errors.
+![](./figures/pre5.png)
+
+
+The above preliminary exploratory work is only used to demonstrate that the research questions posed above are feasible on this dataset. Subsequent formal work will lead to more profound work as well as better visualization.
+
+**Methodology**
+
+1. **Statistical Analysis and Visualization:** Utilize descriptive statistics and visualizations to identify common characteristics of popular passwords. This can include frequency distributions, word clouds for textual analysis, and bar charts comparing categories.
+
+2. **Regression Analysis:** To explore the relationship between password popularity and strength, I will apply regression analysis. I will try both linear and nonlinear regression models.

@@ -1,0 +1,10 @@
+"0",""
+"0","library(dataReporter)"
+"0","makeCodebook(data = password_data, output_dir = getwd(), report_title = ""Data Report"", open_report = FALSE, replace = TRUE)"
+"2","Data report generation is finished. Please wait while your output file is being rendered.
+"
+"2","
+ Is codebook_password_data.docx open on your computer? Please close it as fast as possible to avoid problems! 
+
+"
+"0","  "
