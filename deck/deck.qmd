@@ -1,6 +1,5 @@
 ---
 title: "Password"
-subtitle: "Why it’s getting harder to create passwords ?"
 author: "Kunning Shen"
 format: revealjs
 css: custom.css
@@ -122,7 +121,7 @@ password_data_p2_reverse <- password_data_p2 %>%
   arrange(desc(rn)) %>%
   select(-rn)
 
-alpha_value <- 0.1
+alpha_value <- 0.15
 rainbow_colors <- rainbow(10)
 color_values <- c(
   "name_top1" = rainbow_colors[1], "name_other" = alpha(rainbow_colors[1], alpha_value),
@@ -291,7 +290,7 @@ p3_final <- p3_par / p3_violin_strength / p3_violin_offline_crack
 print(p3_final)
 ```
 
----
+
 
 ## Length
 
@@ -306,3 +305,101 @@ p5 <- ggplot(password_data_p3, aes(x = length, y = strength)) +
 
 print(p5)
 ```
+
+
+## Modeling
+
+To construct a regression model for the online cracking time of passwords, using *total password length*, *category*, *password composition*, *number of letters*, and *number of digits*, a "decision tree model" was adopted. This approach allows us to identify which features truly influence password security by examining the model.<br><br>
+
+
+
+#### TabNet: Attentive Interpretable Tabular Learning
+
+TabNet is a deep learning model that integrate DNNs into DTs.
+
+TabNet uses sequential attention to choose which features to reason from at each decision step, enabling interpretability.<br><br>
+
+#### Which one is the safest password?
+
+**password**
+
+**passw0rd**
+
+**a7q2y6i**
+
+
+## Modeling results
+
+
+#### Using both letters and numbers, then longer is stronger
+
+<div style="display: flex; justify-content: space-around; align-items: center;">
+  <img src="p6_model_importance_of_features.png"  style="width: 45%;"/>
+  <img src="p7_model_prediction.png" style="width: 45%;"/>
+</div>
+
+
+
+
+
+## AI cracking passwords
+
+<div align="center">
+  <img src="./passgan.png" />
+</div>
+
+## How Long Can Our Passwords Survive Against AI?
+
+```{r}
+min <- 60
+hour <- 60*min
+day <- 24*hour
+week <- 7*day
+month <- 30 * week
+year <- 12 * month
+
+password_data <- expand.grid(Length = 4:14, 
+                             Type = c("Numbers Only", "Lowercase\nLetters Only", "Lowercase &\nUpper Letters", "Numbers,\n Upper &\n Lowercase Letters", "Numbers,\n Upper &\n Lowercase letter &\nSymbols"))
+password_data$Time_to_Crack <- c(0, 0, 0, 0, 0, 0, 0, 0, 25, 3 * min, 36*min, 
+                                 0, 0, 0, 0, 3, min, hour, 23*hour, 3*week, 11*month, 49*year, 
+                                 0, 0, 0, 22, 19*min, 11 * hour, 4*week, 4*year, 289*year, 16*1000*year, 827*1000*year,
+                                 0, 0, 0, 42, 48*min, 2*day, 6*month, 38*year, 2000*year, 91*1000*year, 9*1000000*year, 
+                                 0, 0, 4, 6*min, 7*hour, 2*week, 5*year, 356*year, 30000*year, 2000000*year, 187*10000000*year
+                                 ) # Random data; replace with actual times
+
+
+password_data$Log_Time_to_Crack <- log10(password_data$Time_to_Crack)
+
+
+password_data_long <- melt(password_data, id.vars = c("Length", "Type"), 
+                           measure.vars = "Log_Time_to_Crack")
+breaks <- c(0, 5, 10, 15)
+
+text_color = "black"
+labels <- c("Immediate", "2.8 hours", "317 years", "317k years")
+
+AI_heat <- ggplot(password_data_long, aes(x = Type, y = Length, fill = value)) + 
+  geom_tile() + 
+  scale_fill_gradient(low = "yellow", high = "red",
+                      breaks = breaks, labels = labels) +
+  labs(fill = "Time to Crack") +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        ) +
+    scale_y_continuous(breaks = 4:14, limits = c(3.5, 14.5))+
+  ggtitle("Time AI (passGAN) takes to crack your password") +
+  geom_text(aes(x = "Lowercase\nLetters Only", y = 8, label = "password (3s)"), color = text_color) +
+    geom_text(aes(x = "Lowercase &\nUpper Letters", y = 8, label = "pAssword (19m)"), color = text_color) +
+    geom_text(aes(x = "Numbers,\n Upper &\n Lowercase Letters", y = 8, label = "pAssw0rd (48m)"), color = text_color) +
+    geom_text(aes(x = "Numbers,\n Upper &\n Lowercase letter &\nSymbols", y = 8, label = "pAssw0r$ (7h)"), color = text_color) +
+      geom_text(aes(x = "Lowercase\nLetters Only", y = 11, label = "passwordddd (23h)"), color = text_color) +
+  geom_text(aes(x = "Lowercase\nLetters Only", y = 5, label = "Instantly"), color = text_color, size=11) +
+geom_text(aes(x = "Numbers,\n Upper &\n Lowercase Letters", y = 7, label = "a7q2y6i (22S)"), color = text_color) 
+
+print(AI_heat)
+```
+
+Similar to traditional cracking methods, longer passwords that include a variety of character types are more secure, 
+
+the difference is they need to be much LONGER.
