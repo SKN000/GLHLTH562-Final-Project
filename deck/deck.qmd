@@ -1,0 +1,308 @@
+---
+title: "Password"
+subtitle: "Why it’s getting harder to create passwords ?"
+author: "Kunning Shen"
+format: revealjs
+css: custom.css
+---
+
+
+```{r setup, include=FALSE, warning = FALSE, message = FALSE, echo=FALSE}
+
+# knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+#   
+library(wordcloud2)
+library(htmlwidgets)
+library(knitr)
+library(forcats)
+library(dplyr)
+library(ggtext)
+library(VennDiagram)
+library(grid)
+library(gridExtra)
+library(png)
+library(ggparliament)
+library(patchwork)
+library(GGally)
+library(rpart)
+library(tidymodels)
+library(dplyr)
+library(stringr)
+library(reshape2)
+library(plotly)
+
+
+password_data <- read.csv("../data/passwords.csv")
+
+## Add a column length
+
+words <- password_data$password
+
+freqs <- 501 - password_data$rank
+
+freqs <- sqrt(freqs)
+
+freqs <- round(freqs / max(freqs) * 500)
+freqs[1] <- freqs[1]+1000
+
+word_freq <- data.frame(word=words, freq=freqs)
+
+# wordcloud <- wordcloud2(word_freq, size = 0.5, shape = "circle")
+wordcloud2(word_freq, size = 0.5, shape = "circle")
+
+
+```
+
+---
+
+## Dataset
+
+The top 500 most used passwords in 2014.
+
+Password, rank, category, online crack time, offline crack time, strength.
+
+```{r echo=FALSE}
+
+password_data <- read.csv("../data/passwords.csv")
+
+## Add a column length
+
+words <- password_data$password
+
+freqs <- 501 - password_data$rank
+
+freqs <- sqrt(freqs)
+
+freqs <- round(freqs / max(freqs) * 500)
+freqs[1] <- freqs[1]+1000
+
+word_freq <- data.frame(word=words, freq=freqs)
+
+# wordcloud <- wordcloud2(word_freq, size = 0.5, shape = "circle")
+wordcloud2(word_freq, size = 0.5, shape = "circle")
+```
+
+---
+
+## Research Target
+
+Explore what contributes to a strong password.
+
+  • Visualization
+ 
+  • Modeling
+
+This will also reveal why there are so many requirements for setting passwords nowadays.
+
+
+![](./pw_r.png)
+
+---
+
+## Category 
+
+```{r}
+windowsFonts(p2Font = windowsFont("Cooper Black"))
+
+password_data_p2 <- password_data %>%
+  mutate(category = fct_infreq(category))
+
+password_data_p2 <- password_data_p2 %>%
+  group_by(category) %>%
+  mutate(total = n(),  
+         rank_in_category = rank(-rank, ties.method = "first"), 
+         rank_y = total - rank_in_category + 1,  
+         color = ifelse(rank == min(rank), 
+                        paste0(category, "_top1"), 
+                        paste0(category, "_other"))) %>%
+  ungroup()
+
+password_data_p2_reverse <- password_data_p2 %>%
+  mutate(rn = row_number()) %>%
+  arrange(desc(rn)) %>%
+  select(-rn)
+
+alpha_value <- 0.1
+rainbow_colors <- rainbow(10)
+color_values <- c(
+  "name_top1" = rainbow_colors[1], "name_other" = alpha(rainbow_colors[1], alpha_value),
+  "cool-macho_top1" = rainbow_colors[2], "cool-macho_other" = alpha(rainbow_colors[2], alpha_value),
+  "simple-alphanumeric_top1" = rainbow_colors[3], "simple-alphanumeric_other" = alpha(rainbow_colors[3], alpha_value),
+  "fluffy_top1" = rainbow_colors[4], "fluffy_other" = alpha(rainbow_colors[4], alpha_value),
+  "sport_top1" = rainbow_colors[5], "sport_other" = alpha(rainbow_colors[5], alpha_value),
+  "nerdy-pop_top1" = rainbow_colors[6], "nerdy-pop_other" = alpha(rainbow_colors[6], alpha_value),
+  "animal_top1" = rainbow_colors[7], "animal_other" = alpha(rainbow_colors[7], alpha_value),
+  "password-related_top1" = rainbow_colors[8], "password-related_other" = alpha(rainbow_colors[8], alpha_value),
+  "food_top1" = rainbow_colors[9], "food_other" = alpha(rainbow_colors[9], alpha_value),
+  "rebellious-rude_top1" = rainbow_colors[10], "rebellious-rude_other" = alpha(rainbow_colors[10], alpha_value)
+)
+
+## make the plot align upwards 
+password_data_p2_reverse <- password_data_p2_reverse %>%
+  mutate(
+    name_total = ifelse(category == "name", total, NA), # Temporarily store 'name' total in each row
+    name_total = max(name_total, na.rm = TRUE), # Replace NAs with the maximum 'name' total for all rows
+    rank_in_category = ifelse(
+      category != "name", 
+      rank_in_category + (name_total - total), 
+      rank_in_category
+    )
+  ) %>%
+  select(-name_total)
+
+password_data_p2_reverse$length <- nchar(password_data_p2_reverse$password)
+
+p2 <- ggplot(password_data_p2_reverse) +
+  geom_text(aes(x = category, y = rank_in_category, label = password, color = color), size = 4, family="p2Font") +
+  scale_color_manual(values = color_values) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5), 
+        legend.position = "none",
+        plot.title = element_text(size = 14, face = "bold")) +
+  labs(title = "Password Distribution Across Categories", x = NULL, y = NULL)
+
+password_data_p2_rescaled <- password_data_p2_reverse
+
+password_data_p2_rescaled$length <- (password_data_p2_rescaled$length - 4) * (85 - 0) / (9 - 4) + 0
+
+# Rescale 'strength' column from 0-48 to 95-175
+password_data_p2_rescaled$strength <- (password_data_p2_rescaled$strength - 0) * (175 - 95) / (48 - 0) + 90
+
+p2_final <- p2 + 
+  geom_violin(alpha = 0.6,data = password_data_p2_rescaled, aes(x = category, y = length, fill = category))+
+  geom_violin(alpha = 0.6,data = password_data_p2_rescaled, aes(x = category, y = strength, fill = category))+
+  # set y_tick
+  # 0 17 34 51 68 85  95 115 135 155  175
+  # 4 5  6  7  8  9   0  12 24   36   48
+  scale_y_continuous(
+    name = "Length                             Strength",
+    breaks = c(0, 17, 34, 51, 68, 85,  95, 115, 135, 155, 175), 
+    labels = c(4, 5, 6,  7,  8,  9,   0,  12, 24,   36,   48), # dual y axis, second y ticks for # of passwords
+    sec.axis = sec_axis(~ 183 - ., name = "# of passwords")
+  )+
+  theme(
+    # panel.background = element_rect(fill = "grey"),
+        panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    plot.caption  = element_markdown(margin = margin(t = 10), size = 6))+
+    labs(size = 10,
+         caption = paste0(
+              "Source: <b>Information is Beautiful</b> | ",
+              "Graphic: <b>SKN</b>"
+          )) 
+
+print(p2_final)
+
+
+```
+
+---
+
+## Password Composition
+
+```{r}
+color_num <- '#ff7f0e'
+color_letter <- "#1f77b4"
+color_alphanum <- "purple"
+
+p3_1_data <- data.frame(
+  name = c("Numbers only", "Alphanumeric", "Letters only"),
+  number = c(446, 14, 40),
+  color = c(color_num, color_alphanum, color_letter)
+)
+
+
+ru_semicircle <- parliament_data(election_data = p3_1_data,
+                                 type = "classroom", # Parliament type
+                                 parl_rows = 11,      # Number of rows of the parliament
+                                 party_seats = p3_1_data$number) # Seats per party
+
+p3_par <- ggplot(ru_semicircle, aes(x = x, y = y, colour = name)) +
+  geom_parliament_seats() + 
+  theme_ggparliament() +
+  scale_colour_manual(values = p3_1_data$color, 
+                      limits = p3_1_data$name) +
+  labs(color = "Password Composition")
+
+password_data_p3 <- password_data
+password_data_p3 <- password_data_p3 %>%
+  mutate(pw_label = case_when(
+    grepl("^[0-9]+$", password) ~ "Numbers",  
+    grepl("^[A-Za-z]+$", password) ~ "Letters",  
+    TRUE ~ "Alphanumeric"  
+  ))
+
+alpha_fill <- 0.25
+alpha_color <- 0.45
+  
+p3_violin_strength <- ggplot(password_data_p3, aes(x = factor(pw_label), y = strength, fill = factor(pw_label)), color = pw_label) +
+  geom_violin(trim = FALSE, adjust = 1.5, color = NA, width = 1.5) + 
+  coord_flip() +  
+  geom_point(aes(color = pw_label), position = position_jitter(width = 0.15, height = 0), alpha = 0.5) + 
+  scale_fill_manual(values = c(alpha(color_alphanum, alpha_fill), alpha(color_letter, alpha_fill), alpha(color_num, alpha_fill)) ) +  
+  scale_color_manual(values = c(alpha(color_alphanum, alpha_color), alpha(color_letter, alpha_color), alpha(color_num, alpha_color)) )  +  
+  labs(x = "Password Label",
+       y = "Strength",
+       fill = "Label") +
+  
+  
+  theme_minimal() +
+  theme(
+    axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        # axis.ticks.y = element_blank(),
+    legend.position = "none"
+        ) +
+  labs(y = "Strength")
+
+password_data_p3 <- password_data_p3 %>%
+  mutate(
+    offline_in_seconds = case_when(
+      time_unit == "years" ~ value * 365 * 24 * 60 * 60,
+      time_unit == "months" ~ value * 30 * 24 * 60 * 60, 
+      time_unit == "weeks" ~ value * 7 * 24 * 60 * 60,
+      time_unit == "days" ~ value * 24 * 60 * 60,
+      time_unit == "hours" ~ value * 60 * 60, 
+      time_unit == "minutes" ~ value * 60,
+      time_unit == "seconds" ~ value,
+      TRUE ~ NA_real_  
+    )
+  )
+
+p3_violin_offline_crack <- ggplot(password_data_p3, aes(x = factor(pw_label), y = offline_in_seconds, fill = factor(pw_label)), color = pw_label) +
+  geom_violin(trim = FALSE, color = NA) + 
+  scale_y_log10() +
+  coord_flip() +  
+  geom_point(aes(color = pw_label), position = position_jitter(width = 0.15, height = 0), alpha = 0.5) + 
+  scale_fill_manual(values = c(alpha(color_alphanum, alpha_fill), alpha(color_letter, alpha_fill), alpha(color_num, alpha_fill)) ) +  
+  scale_color_manual(values = c(alpha(color_alphanum, alpha_color), alpha(color_letter, alpha_color), alpha(color_num, alpha_color)) )  +  
+  theme_minimal() +
+  theme(
+    axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        # axis.ticks.y = element_blank(),
+    legend.position = "none"
+        ) + 
+  labs(y = "Offline Crack Time (s)")
+
+p3_final <- p3_par / p3_violin_strength / p3_violin_offline_crack
+
+
+print(p3_final)
+```
+
+---
+
+## Length
+
+```{R}
+password_data_p3$length <- nchar(password_data_p3$password)
+p5 <- ggplot(password_data_p3, aes(x = length, y = strength)) +
+  geom_point(aes(color = pw_label)) +   
+  geom_smooth(method = "lm", se = FALSE, aes(color = pw_label)) +  
+  facet_wrap(~ pw_label) + 
+  labs(x = "Length", y = "Strength", color = "Password Composition") +  
+  theme_minimal()  
+
+print(p5)
+```
