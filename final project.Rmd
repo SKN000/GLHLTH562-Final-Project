@@ -60,7 +60,7 @@ include_graphics("./figures/p1_wordcloud.png")
 
 Interactive figure for a quick view of top 10 passwords.
 ```{r}
-library(plotly)
+
 password_data_p1 <- password_data
 
 generate_text_bar <- function(value, min_value, max_value, bar_length = 20) {

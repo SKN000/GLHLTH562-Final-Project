@@ -1,6 +1,7 @@
 ---
 title: "Password"
 author: "Kunning Shen"
+date: "04/11/2024"
 format: revealjs
 css: custom.css
 ---
@@ -8,8 +9,6 @@ css: custom.css
 
 ```{r setup, include=FALSE, warning = FALSE, message = FALSE, echo=FALSE}
 
-# knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-#   
 library(wordcloud2)
 library(htmlwidgets)
 library(knitr)
@@ -29,28 +28,12 @@ library(dplyr)
 library(stringr)
 library(reshape2)
 library(plotly)
-
+library(treemapify)
 
 password_data <- read.csv("../data/passwords.csv")
 
-## Add a column length
-
-words <- password_data$password
-
-freqs <- 501 - password_data$rank
-
-freqs <- sqrt(freqs)
-
-freqs <- round(freqs / max(freqs) * 500)
-freqs[1] <- freqs[1]+1000
-
-word_freq <- data.frame(word=words, freq=freqs)
-
-# wordcloud <- wordcloud2(word_freq, size = 0.5, shape = "circle")
-wordcloud2(word_freq, size = 0.5, shape = "circle")
-
-
 ```
+
 
 ---
 
@@ -58,13 +41,9 @@ wordcloud2(word_freq, size = 0.5, shape = "circle")
 
 The top 500 most used passwords in 2014.
 
-Password, rank, category, online crack time, offline crack time, strength.
+Features: Password, Rank, Category, Online crack time, Offline crack time, Strength.
 
 ```{r echo=FALSE}
-
-password_data <- read.csv("../data/passwords.csv")
-
-## Add a column length
 
 words <- password_data$password
 
@@ -77,21 +56,25 @@ freqs[1] <- freqs[1]+1000
 
 word_freq <- data.frame(word=words, freq=freqs)
 
-# wordcloud <- wordcloud2(word_freq, size = 0.5, shape = "circle")
 wordcloud2(word_freq, size = 0.5, shape = "circle")
+
+
 ```
 
----
+<!-- <div style="width: 900px; height: 900px; margin: auto;"> -->
+<!--   <iframe src="wordcloud.html" width="100%" height="100%" style="border: none;overflow: hidden;"></iframe> -->
+<!-- </div> -->
 
-## Research Target
+
+## Research Objective
 
 Explore what contributes to a strong password.
 
-  • Visualization
+  &nbsp;&nbsp;&nbsp;&nbsp;• Visualization
  
-  • Modeling
+  &nbsp;&nbsp;&nbsp;&nbsp;• Modeling
 
-This will also reveal why there are so many requirements for setting passwords nowadays.
+This will also reveal why there are so many rules for setting passwords nowadays.
 
 
 ![](./pw_r.png)
@@ -101,6 +84,7 @@ This will also reveal why there are so many requirements for setting passwords n
 ## Category 
 
 ```{r}
+
 windowsFonts(p2Font = windowsFont("Cooper Black"))
 
 password_data_p2 <- password_data %>%
@@ -184,6 +168,7 @@ p2_final <- p2 +
         panel.grid.major = element_blank(), 
     panel.grid.minor = element_blank(),
     plot.caption  = element_markdown(margin = margin(t = 10), size = 6))+
+  
     labs(size = 10,
          caption = paste0(
               "Source: <b>Information is Beautiful</b> | ",
@@ -194,10 +179,13 @@ print(p2_final)
 
 
 ```
-
+No surprises, the distribution of password length and strength across all categories is very similar and appears to be unrelated to security.
 ---
 
 ## Password Composition
+
+Without mandatory rules, no one is willing to use both letters and numbers, let alone symbols.
+
 
 ```{r}
 color_num <- '#ff7f0e'
@@ -286,6 +274,17 @@ p3_violin_offline_crack <- ggplot(password_data_p3, aes(x = factor(pw_label), y 
 
 p3_final <- p3_par / p3_violin_strength / p3_violin_offline_crack
 
+p3_final <- p3_final + theme(
+    # panel.background = element_rect(fill = "grey"),
+        panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    plot.caption  = element_markdown(margin = margin(t = 10), size = 6))+
+  
+    labs(size = 10,
+         caption = paste0(
+              "Source: <b>Information is Beautiful</b> | ",
+              "Graphic: <b>SKN</b>"
+          )) 
 
 print(p3_final)
 ```
@@ -303,9 +302,20 @@ p5 <- ggplot(password_data_p3, aes(x = length, y = strength)) +
   labs(x = "Length", y = "Strength", color = "Password Composition") +  
   theme_minimal()  
 
+p5 <- p5 + theme(
+    # panel.background = element_rect(fill = "grey"),
+        panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(),
+    plot.caption  = element_markdown(margin = margin(t = 10), size = 6))+
+  
+    labs(size = 10,
+         caption = paste0(
+              "Source: <b>Information is Beautiful</b> | ",
+              "Graphic: <b>SKN</b>"
+          )) 
 print(p5)
 ```
-
+Although the trend is not as pronounced, overall, length is still positively correlated with strength.
 
 ## Modeling
 
@@ -319,29 +329,255 @@ TabNet is a deep learning model that integrate DNNs into DTs.
 
 TabNet uses sequential attention to choose which features to reason from at each decision step, enabling interpretability.<br><br>
 
-#### Which one is the safest password?
+**Why TabNet?**
 
-**password**
+&nbsp;&nbsp;&nbsp;&nbsp; High perfermance
 
-**passw0rd**
-
-**a7q2y6i**
+&nbsp;&nbsp;&nbsp;&nbsp; Interpretability
 
 
+---
 ## Modeling results
 
+  Which one is safer? (**hahahahaha**, **hahahahah0**, **a7q2y9ir0** )
 
-#### Using both letters and numbers, then longer is stronger
+```{python, results='hide'}
+from pytorch_tabnet.tab_model import TabNetRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+import pandas as pd
+import numpy as np
 
-<div style="display: flex; justify-content: space-around; align-items: center;">
-  <img src="p6_model_importance_of_features.png"  style="width: 45%;"/>
-  <img src="p7_model_prediction.png" style="width: 45%;"/>
+
+data = pd.read_csv('../data/passwords.csv')
+
+data['length'] = data['password'].apply(len)
+data['num_letters'] = data['password'].str.count(r'[A-Za-z]')
+data['num_digits'] = data['password'].str.count(r'[0-9]')
+data['pw_type'] = np.where(data['num_letters'] > 0, 
+                           np.where(data['num_digits'] > 0, 'Letters and Digits', 'Letters Only'), 
+                           'Digits Only')
+
+le_cat = LabelEncoder()
+le_pw = LabelEncoder()
+
+data['pw_type'] = le_pw.fit_transform(data['pw_type'])
+data['category'] = le_cat.fit_transform(data['category'])
+
+
+X = data[['category', 'length', 'num_letters', 'num_digits', 'pw_type']].values
+
+def convert_to_seconds(value, unit):
+    unit_to_seconds = {
+        'seconds': 1,
+        'minutes': 60,
+        'hours': 3600,
+        'days': 86400,
+        'weeks': 604800,
+        'months': 2628000,  
+        'years': 31536000
+    }
+    return value * unit_to_seconds[unit]
+
+
+data['value_in_seconds'] = data.apply(lambda row: convert_to_seconds(row['value'], row['time_unit']), axis=1)
+
+y_off = data['offline_crack_sec'].values.reshape(-1, 1)  # target: offline 
+
+y_on = np.log1p(data['value_in_seconds'].values.reshape(-1, 1))
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X) 
+
+X_train_on, X_test_on, y_train_on, y_test_on = train_test_split(X_scaled, y_off, test_size=0.2, random_state=42)
+
+X_train_off, X_test_off, y_train_off, y_test_off = train_test_split(X_scaled, y_on, test_size=0.2, random_state=42)
+
+n=4
+n_steps = 1
+
+regressor_offline = TabNetRegressor(verbose=0, n_steps = n_steps,  n_d = n, n_a = n)
+regressor_online = TabNetRegressor(verbose=0, n_steps = n_steps, n_d = n, n_a = n)
+
+regressor_offline.fit(
+    X_train_off, y_train_off,
+    eval_set=[(X_test_off, y_test_off)],
+    eval_name=['test'],
+    eval_metric=['rmse'],
+    max_epochs=1000,
+    patience=50,
+    batch_size=1024, 
+    virtual_batch_size=128,
+    num_workers=0,
+    drop_last=False
+)
+
+regressor_online.fit(
+    X_train_on, y_train_on,
+    eval_set=[(X_test_on, y_test_on)],
+    eval_name=['test'],
+    eval_metric=['rmse'],
+    max_epochs=1000,
+    patience=50,
+    batch_size=1024, 
+    virtual_batch_size=128,
+    num_workers=0,
+    drop_last=False
+)
+
+passwords = [
+    'hahahahaha',
+    'hahahahah0',
+    'a7q2y9ir0'
+]
+
+passwords_df = pd.DataFrame({'password': passwords})
+
+passwords_df['category'] = ['password-related', 'password-related', 'password-related']
+passwords_df['length'] = passwords_df['password'].apply(len)
+passwords_df['num_letters'] = passwords_df['password'].str.count(r'[A-Za-z]')
+passwords_df['num_digits'] = passwords_df['password'].str.count(r'[0-9]')
+passwords_df['pw_type'] = np.where(passwords_df['num_letters'] > 0, 
+                                    np.where(passwords_df['num_digits'] > 0, 'Letters and Digits', 'Letters Only'), 
+                                    'Digits Only')
+
+passwords_df['pw_type'] = le_pw.transform(passwords_df['pw_type'])
+passwords_df['category'] = le_cat.transform(passwords_df['category'])
+
+X = passwords_df[['category', 'length', 'num_letters', 'num_digits', 'pw_type']].values
+
+X_passwords_scaled = scaler.transform(X)
+
+y_pred = regressor_online.predict(X_passwords_scaled)
+# print(y_pred)
+```
+
+```{r}
+ layout_p <- 'scol'
+
+ df_features <- data.frame(
+     feature =  c('Length\n 48.8%', 'Composition\n 46.2%', '# of Digits\n 2.4%', '# of Letters\n 1.9%', 'Category\n 0.7%'),
+     # importance =  c(0.488, 0.462, 0.024, 0.019, 0.007),
+     importance =  c(0.488, 0.462, 0.048, 0.038, 0.014) # double some features for better visualization
+ )
+
+ features <- ggplot(df_features, aes(area = importance, label = feature, fill = importance)) +
+   geom_treemap(layout = layout_p) +
+   geom_treemap_text(colour = "white", place = "centre", grow = TRUE, size = 1, layout = layout_p) +
+   # geom_treemap_subgroup_border(colour = "white", size = 6) +
+   scale_fill_gradient(low = "#A9A9A9", high = "#003366")+
+   theme(legend.position = "none")
+
+ggsave("features.png", features, dpi = 300)
+
+```
+
+```{r}
+library(ggplot2)
+
+d<-data.frame(
+  pw = c("haha\nhahaha", "haha\nhahah0", "a7q2y9ir0"),
+  composition = c("letters", "alphanumeric", "alphanumeric"),
+  length = c(10, 10, 9),
+  time = c(3.4882596, 84.56679, 57.172493)
+)
+
+
+p <- ggplot(d, aes(x = composition, y = as.factor(length), fill = time)) +
+  geom_tile() +
+  scale_fill_gradient(low = "yellow", high = "red")+
+  labs(fill = "lg10\nCrack\nSec\n\n\n") +
+  geom_text(aes(label = pw), vjust = 0.5, hjust = 0.5)+
+    theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank()
+  ) 
+
+# plot_gg(p)
+
+```
+
+
+```{=html}
+<div class="tab">
+  <button class="tablinks" onclick="openImage(event, 'Image1')">Importance of features</button>
+  <button class="tablinks" onclick="openImage(event, 'Image2')">Online crack time prediction</button>
 </div>
 
+<!-- Tab content -->
+<div id="Image1" class="tabcontent">
+  <img src="features.png" alt="Image1" style="width:100%">
+</div>
+
+<div id="Image2" class="tabcontent">
+  <img src="pw_ret.png" alt="Image2" style="width:60%">
+</div>
+
+<script>
+function openImage(evt, imageName) {
+  var i, tabcontent, tablinks;
+
+  tabcontent = document.getElementsByClassName("tabcontent");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+  }
+
+  tablinks = document.getElementsByClassName("tablinks");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].className = tablinks[i].className.replace(" active", "");
+  }
+
+  document.getElementById(imageName).style.display = "block";
+  evt.currentTarget.className += " active";
+}
+</script>
+
+<style>
+/* Style the tab */
+.tab {
+  overflow: hidden;
+  border: 1px solid #ccc;
+  background-color: #f1f1f1;
+}
+
+/* Style the buttons inside the tab */
+.tab button {
+  background-color: inherit;
+  float: left;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  transition: 0.3s;
+}
+
+.tab button:hover {
+  background-color: #ddd;
+}
+
+.tab button.active {
+  background-color: #ccc;
+}
+
+.tabcontent {
+  display: none;
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-top: none;
+  overflow: auto; 
+}
+</style>
+```
 
 
 
+---
 
+<div style="display: flex; justify-content: center; align-items: center; height: 55vh;">
+  <h4>However, AI can not only help us study the factors of password strength, but also can ...</h4>
+</div>
+
+---
 ## AI cracking passwords
 
 <div align="center">
@@ -349,6 +585,7 @@ TabNet uses sequential attention to choose which features to reason from at each
 </div>
 
 ## How Long Can Our Passwords Survive Against AI?
+
 
 ```{r}
 min <- 60
@@ -365,7 +602,7 @@ password_data$Time_to_Crack <- c(0, 0, 0, 0, 0, 0, 0, 0, 25, 3 * min, 36*min,
                                  0, 0, 0, 22, 19*min, 11 * hour, 4*week, 4*year, 289*year, 16*1000*year, 827*1000*year,
                                  0, 0, 0, 42, 48*min, 2*day, 6*month, 38*year, 2000*year, 91*1000*year, 9*1000000*year, 
                                  0, 0, 4, 6*min, 7*hour, 2*week, 5*year, 356*year, 30000*year, 2000000*year, 187*10000000*year
-                                 ) # Random data; replace with actual times
+                                 ) 
 
 
 password_data$Log_Time_to_Crack <- log10(password_data$Time_to_Crack)
@@ -395,11 +632,56 @@ AI_heat <- ggplot(password_data_long, aes(x = Type, y = Length, fill = value)) +
     geom_text(aes(x = "Numbers,\n Upper &\n Lowercase letter &\nSymbols", y = 8, label = "pAssw0r$ (7h)"), color = text_color) +
       geom_text(aes(x = "Lowercase\nLetters Only", y = 11, label = "passwordddd (23h)"), color = text_color) +
   geom_text(aes(x = "Lowercase\nLetters Only", y = 5, label = "Instantly"), color = text_color, size=11) +
-geom_text(aes(x = "Numbers,\n Upper &\n Lowercase Letters", y = 7, label = "a7q2y6i (22S)"), color = text_color) 
+  geom_text(aes(x = "Numbers,\n Upper &\n Lowercase letter &\nSymbols", y = 12, label = "NetID pw (30k years)"), color = text_color) 
 
 print(AI_heat)
 ```
 
-Similar to traditional cracking methods, longer passwords that include a variety of character types are more secure, 
+Similarly, longer passwords that include a variety of character types are more secure, 
 
 the difference is they need to be much LONGER.
+
+
+## Experts' Advice on Setting Passwords
+```{R}
+library(ggplot2)
+library(ggforce)
+library(magick)
+library(grid)
+
+image_path <- "google_pw.png"
+logo <- magick::image_read(image_path)
+logo <- magick::image_scale(logo, "1000x800")
+
+x_pw <- 0.8
+y_pw <- -0.05
+limit <- 4
+font_size <- 4
+line_size <-0.2
+p <- ggplot() + 
+  
+  annotation_custom(rasterGrob(logo, width=unit(0.28,"npc"), height=unit(0.12,"npc")), 
+                    xmin=-Inf, xmax=Inf, ymin=-Inf, ymax=Inf) +
+  geom_circle(aes(x0 = 0, y0 = 0, r = 1.45), color = "#9B72AA", fill = NA, size = 1.5, linetype = "solid") +
+  geom_circle(aes(x0 = 0, y0 = 0, r = 1.5), color = "#7E438E", fill = NA, size = 1.5, linetype = "solid") +
+
+  annotate("segment", x = x_pw, xend = 1.6, y = y_pw, yend = 0, colour = "#336699", size=line_size) +
+  geom_text(aes(x = 1.6, y = 0, label = "1. At least 15 characters."), color = "#336699", angle = 0, hjust = 0, size = font_size, fontface = "bold") +
+  
+  annotate("segment", x = x_pw, xend = -1, y = y_pw, yend = 1.5, colour = "#F4B6C2", size = line_size) +
+  annotate("text", x = -1.6, y = 1.6, label = "2. Must contain at least two letters (upper and lower case),\nnumbers, and symbols.", color = "#FF6B6B", angle = 0, hjust = 0.5, size = font_size, fontface = "bold") +
+  
+  annotate("segment", x = x_pw, xend = -1.5, y = y_pw, yend = -1.5, colour = "#B2E2E2", size = line_size) +
+  annotate("text", x = -1.6, y = -1.6, label = "3. Avoid obvious password patterns.", color = "#108B67", angle = 0, hjust = 0.5, size = font_size, fontface = "bold") +
+
+  coord_fixed() +
+  theme_void() +
+  xlim(-limit, limit) + 
+  ylim(-limit, limit)
+
+ggsave("pw_advice.png", p, width = 10, height = 7, dpi = 300)
+
+```
+The passwords recommended by Google perfectly match the experts' advice.
+
+<img src="pw_advice.png" style="width:7000px;height:auto;">
