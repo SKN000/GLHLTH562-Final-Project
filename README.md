@@ -3,9 +3,9 @@ README
 Kunning Shen
 4/11/2024
 
-Kunning Shen’s final project for GLHLTH 562.
+Final project of GLHLTH 562.
 
-# Executive Summary
+![](./figures/p1_wordcloud.png) \# Executive Summary
 
 ## Dataset
 
