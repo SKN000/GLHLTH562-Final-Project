@@ -1,5 +1,6 @@
 ---
 title: "Password"
+subtitle: "GLHLTH 562 Final Project"
 author: "Kunning Shen"
 date: "04/11/2024"
 format: revealjs
@@ -39,9 +40,9 @@ password_data <- read.csv("../data/passwords.csv")
 
 ## Dataset
 
-The top 500 most used passwords in 2014.
+The top 500 most used passwords in 2014, 
 
-Features: Password, Rank, Category, Online crack time, Offline crack time, Strength.
+and their Rank, Category, Online crack time, Offline crack time, Strength.
 
 ```{r echo=FALSE}
 
@@ -58,12 +59,14 @@ word_freq <- data.frame(word=words, freq=freqs)
 
 wordcloud2(word_freq, size = 0.5, shape = "circle")
 
-
 ```
 
-<!-- <div style="width: 900px; height: 900px; margin: auto;"> -->
-<!--   <iframe src="wordcloud.html" width="100%" height="100%" style="border: none;overflow: hidden;"></iframe> -->
-<!-- </div> -->
+```{html}
+<div style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+    <iframe src="wordcloud.html" style="width: `00%; height: 100%; border: none; overflow: hidden;"></iframe>
+</div>
+  ```
+
 
 
 ## Research Objective
@@ -179,7 +182,9 @@ print(p2_final)
 
 
 ```
-No surprises, the distribution of password length and strength across all categories is very similar and appears to be unrelated to security.
+
+The quantity of passwords varies greatly across different categories, but the distribution of their length and strength does not differ much, suggesting that the category and the strength of a password appear to be unrelated.
+
 ---
 
 ## Password Composition
@@ -319,7 +324,7 @@ Although the trend is not as pronounced, overall, length is still positively cor
 
 ## Modeling
 
-To construct a regression model for the online cracking time of passwords, using *total password length*, *category*, *password composition*, *number of letters*, and *number of digits*, a "decision tree model" was adopted. This approach allows us to identify which features truly influence password security by examining the model.<br><br>
+To construct a regression model for the online cracking time of passwords, using *total password length*, *category*, *password composition*, *number of letters*, and *number of digits*, a 'decision tree model' was adopted. This approach allows us to identify which features truly influence password security by examining the model.<br><br>
 
 
 
@@ -497,11 +502,39 @@ p <- ggplot(d, aes(x = composition, y = as.factor(length), fill = time)) +
 
 ```
 
+```{r}
+
+text_x <- 9
+df <- read.csv("../data/tabnet_ret.csv")
+df_labels <- df %>%
+  group_by(category) %>%
+  summarise(mean_strength = mean(strength))
+
+tabnet_test_ret <- ggplot(df, aes(x = length)) + 
+  geom_line(aes(y = strength, color = category), size = 1) + # Line for each category
+  geom_ribbon(aes(ymin = 0, ymax = strength, fill = category), alpha = 0.7) + # Fill under the line
+  scale_fill_manual(values = c("Numbers Only" = "lightblue", "Letters Only" = "lightgreen", "Alphanumeric" = "lightpink")) + # Custom colors for fills
+  scale_color_manual(values = c("Numbers Only" = "blue", "Letters Only" = "green", "Alphanumeric" = "pink")) + # Matching colors for lines
+  theme_minimal() +
+  labs(x = "Length", y = "Strength", color = "Category", fill = "Category") +
+  geom_text(aes(x = text_x, y = 30, label = 'Alphanumeric'), color = 'red') + 
+  geom_text(aes(x = text_x+0.2, y = 5.8, label = 'Letters Only'), color = 'darkgreen') +
+  geom_text(aes(x = text_x+0.4, y = 1.8, label = 'Numbers Only'), color = 'darkblue') +
+  theme(legend.position = 'none')+
+  labs(
+    title = 'Using passwords with complex compositions not only enhances their strength\n    but also makes the strength increase more pronounced with added length'
+  )+
+  scale_x_continuous(breaks = 4:10)
+
+ggsave("tabnet_test_ret.png", tabnet_test_ret, dpi = 300)
+```
+
 
 ```{=html}
 <div class="tab">
   <button class="tablinks" onclick="openImage(event, 'Image1')">Importance of features</button>
   <button class="tablinks" onclick="openImage(event, 'Image2')">Online crack time prediction</button>
+  <button class="tablinks" onclick="openImage(event, 'Image3')">More</button>
 </div>
 
 <!-- Tab content -->
@@ -511,6 +544,10 @@ p <- ggplot(d, aes(x = composition, y = as.factor(length), fill = time)) +
 
 <div id="Image2" class="tabcontent">
   <img src="pw_ret.png" alt="Image2" style="width:60%">
+</div>
+
+<div id="Image3" class="tabcontent">
+  <img src="tabnet_test_ret.png" alt="Image3" style="width:100%">
 </div>
 
 <script>
@@ -673,15 +710,17 @@ p <- ggplot() +
   
   annotate("segment", x = x_pw, xend = -1.5, y = y_pw, yend = -1.5, colour = "#B2E2E2", size = line_size) +
   annotate("text", x = -1.6, y = -1.6, label = "3. Avoid obvious password patterns.", color = "#108B67", angle = 0, hjust = 0.5, size = font_size, fontface = "bold") +
-
+  geom_text(aes(x = 2.3, y = -1.1, label = "Crack Time\n > 14 Bn Years"), color = "black")+
   coord_fixed() +
   theme_void() +
   xlim(-limit, limit) + 
   ylim(-limit, limit)
 
 ggsave("pw_advice.png", p, width = 10, height = 7, dpi = 300)
+# print(p)
 
 ```
-The passwords recommended by Google perfectly match the experts' advice.
+<img src="pw_advice.png" style="width: 1000px; height: 700px;">
 
-<img src="pw_advice.png" style="width:7000px;height:auto;">
+
+
